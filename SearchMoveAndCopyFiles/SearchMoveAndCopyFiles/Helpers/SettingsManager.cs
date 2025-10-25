@@ -9,6 +9,7 @@ namespace SearchMoveAndCopyFiles.Helpers
     {
         public string? LastSearchDirectory { get; set; }
         public string SearchPattern { get; set; } = "*.txt;*.png, *.pdf, *.doc, *.docx, *.dwg, *.jpg, *.jpeg";
+        public string? FileNameSearchText { get; set; }
         public bool PreserveStructure { get; set; } = true;
         public WindowState WindowState { get; set; } = WindowState.Normal;
         public double WindowWidth { get; set; } = 1000;

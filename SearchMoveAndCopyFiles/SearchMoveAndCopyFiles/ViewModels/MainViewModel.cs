@@ -7,6 +7,8 @@ using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Input;
+using System.Collections;
+using System.Linq;
 
 namespace SearchMoveAndCopyFiles.ViewModels
 {
@@ -28,6 +30,7 @@ namespace SearchMoveAndCopyFiles.ViewModels
             RootDirectory = settings.LastSearchDirectory;
             SearchPattern = settings.SearchPattern;
             PreserveStructure = settings.PreserveStructure;
+            FileNameSearchText = settings.FileNameSearchText ?? string.Empty;
         }
 
         private void SaveSettings()
@@ -36,6 +39,7 @@ namespace SearchMoveAndCopyFiles.ViewModels
             settings.LastSearchDirectory = RootDirectory;
             settings.SearchPattern = SearchPattern;
             settings.PreserveStructure = PreserveStructure;
+            settings.FileNameSearchText = FileNameSearchText;
             SettingsManager.SaveSettings();
         }
 
@@ -84,6 +88,7 @@ namespace SearchMoveAndCopyFiles.ViewModels
             _searchCommand?.RaiseCanExecuteChanged();
             _cancelCommand?.RaiseCanExecuteChanged();
             _copyCommand?.RaiseCanExecuteChanged();
+            _copySelectedCommand?.RaiseCanExecuteChanged();
             _moveCommand?.RaiseCanExecuteChanged();
         }
 
@@ -109,6 +114,17 @@ namespace SearchMoveAndCopyFiles.ViewModels
             }
         }
 
+        private string _fileNameSearchText = string.Empty;
+        public string FileNameSearchText
+        {
+            get => _fileNameSearchText;
+            set 
+            { 
+                SetProperty(ref _fileNameSearchText, value);
+                SaveSettings();
+            }
+        }
+
         private bool _preserveStructure = true;
         public bool PreserveStructure
         {
@@ -127,9 +143,21 @@ namespace SearchMoveAndCopyFiles.ViewModels
             set => SetProperty(ref _statusMessage, value);
         }
 
+        private IList _selectedFiles = new List<FileItem>();
+        public IList SelectedFiles
+        {
+            get => _selectedFiles;
+            set 
+            { 
+                SetProperty(ref _selectedFiles, value);
+                RaiseCommandsCanExecuteChanged();
+            }
+        }
+
         private RelayCommand? _searchCommand;
         private RelayCommand? _cancelCommand;
         private RelayCommand? _copyCommand;
+        private RelayCommand? _copySelectedCommand;
         private RelayCommand? _moveCommand;
 
         public ICommand BrowseCommand => new RelayCommand(_ => BrowseFolder());
@@ -145,6 +173,10 @@ namespace SearchMoveAndCopyFiles.ViewModels
         public ICommand CopyCommand => _copyCommand ??= new RelayCommand(
             _ => _ = CopyMoveAsync(false), 
             _ => !IsProcessing && FoundFiles.Count > 0);
+            
+        public ICommand CopySelectedCommand => _copySelectedCommand ??= new RelayCommand(
+            _ => _ = CopySelectedAsync(false), 
+            _ => !IsProcessing && SelectedFiles.Count > 0);
             
         public ICommand MoveCommand => _moveCommand ??= new RelayCommand(
             _ => _ = CopyMoveAsync(true), 
@@ -182,13 +214,26 @@ namespace SearchMoveAndCopyFiles.ViewModels
             StatusMessage = "Поиск файлов...";
             Progress = 0;
             _cts = new();
-            var progress = new Progress<int>(v => Progress = v);
+            IProgress<int> progress = new Progress<int>(v => Progress = v);
 
             try
             {
                 var files = await _searchService.SearchAsync(RootDirectory, SearchPattern, progress, _cts.Token);
-                foreach (var f in files)
-                    FoundFiles.Add(f);
+                
+                // Если указан текст для поиска по имени файла, фильтруем файлы
+                if (!string.IsNullOrWhiteSpace(FileNameSearchText))
+                {
+                    var filteredFiles = files.Where(file => 
+                        file.Name.Contains(FileNameSearchText, StringComparison.OrdinalIgnoreCase));
+                    
+                    foreach (var f in filteredFiles)
+                        FoundFiles.Add(f);
+                }
+                else
+                {
+                    foreach (var f in files)
+                        FoundFiles.Add(f);
+                }
                 
                 StatusMessage = $"Всего найдено файлов: {FoundFiles.Count}";
                 
@@ -227,7 +272,7 @@ namespace SearchMoveAndCopyFiles.ViewModels
             StatusMessage = move ? "Перемещение файлов..." : "Копирование файлов...";
             Progress = 0;
             _cts = new();
-            var progress = new Progress<int>(v => Progress = v);
+            IProgress<int> progress = new Progress<int>(v => Progress = v);
 
             try
             {
@@ -237,6 +282,56 @@ namespace SearchMoveAndCopyFiles.ViewModels
                 if (move)
                 {
                     FoundFiles.Clear();
+                }
+            }
+            catch (TaskCanceledException)
+            {
+                StatusMessage = "Операция прервана пользователем";
+            }
+            catch (Exception ex)
+            {
+                StatusMessage = $"Ошибка при выполнении операции: {ex.Message}";
+                System.Windows.MessageBox.Show($"Ошибка при выполнении операции: {ex.Message}", "Ошибка", 
+                    System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Error);
+            }
+            finally
+            {
+                IsProcessing = false;
+            }
+        }
+
+        private async Task CopySelectedAsync(bool move)
+        {
+            if (SelectedFiles.Count == 0) return;
+
+            var folderDialog = new OpenFolderDialog
+            {
+                Title = move ? "Выберите папку для перемещения выбранных файлов" : "Выберите папку для копирования выбранных файлов"
+            };
+
+            if (folderDialog.ShowDialog() != true) return;
+
+            var destination = folderDialog.FolderName;
+            IsProcessing = true;
+            StatusMessage = move ? "Перемещение выбранных файлов..." : "Копирование выбранных файлов...";
+            Progress = 0;
+            _cts = new();
+            IProgress<int> progress = new Progress<int>(v => Progress = v);
+
+            try
+            {
+                var selectedFileItems = SelectedFiles.Cast<FileItem>().ToList();
+                await _copyService.CopyOrMoveAsync(selectedFileItems, destination, PreserveStructure, move, progress, _cts.Token);
+                StatusMessage = move ? $"Перемещено файлов: {selectedFileItems.Count}" : $"Скопировано файлов: {selectedFileItems.Count}";
+                
+                if (move)
+                {
+                    // Удаляем перемещенные файлы из списка найденных
+                    foreach (var file in selectedFileItems)
+                    {
+                        FoundFiles.Remove(file);
+                    }
+                    SelectedFiles.Clear();
                 }
             }
             catch (TaskCanceledException)

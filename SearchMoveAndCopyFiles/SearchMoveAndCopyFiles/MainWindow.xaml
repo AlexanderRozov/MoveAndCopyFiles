@@ -10,25 +10,43 @@
         <helpers:InvertedBooleanConverter x:Key="InvertedBooleanConverter"/>
     </Window.Resources>
     <DockPanel Margin="10">
-        <StackPanel Orientation="Horizontal" DockPanel.Dock="Top" Margin="0,0,0,10">
-            <Label Content="Папка для поиска:" VerticalAlignment="Center" Margin="0,0,5,0"/>
-            <TextBox Width="300" Text="{Binding RootDirectory, UpdateSourceTrigger=PropertyChanged}" 
-                     VerticalAlignment="Center" Margin="0,0,5,0"/>
-            <Button Content="Обзор..." Margin="5,0" Command="{Binding BrowseCommand}" VerticalAlignment="Center"/>
-            <Label Content="Расширения:" VerticalAlignment="Center" Margin="10,0,5,0"/>
-            <TextBox Width="200" Text="{Binding SearchPattern, UpdateSourceTrigger=PropertyChanged}" 
-                     VerticalAlignment="Center" Margin="0,0,5,0"/>
-            <Button Content="Поиск" Margin="5,0" Command="{Binding SearchCommand}" VerticalAlignment="Center" 
-                    IsEnabled="{Binding IsSearching, Converter={StaticResource InvertedBooleanConverter}}"/>
-            <Button Content="Отмена" Margin="5,0" Command="{Binding CancelCommand}" VerticalAlignment="Center" 
-                    IsEnabled="{Binding IsSearching}"/>
+        <StackPanel DockPanel.Dock="Top" Margin="0,0,0,10">
+            <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                <Label Content="Папка для поиска:" VerticalAlignment="Center" Margin="0,0,5,0"/>
+                <TextBox Width="300" Text="{Binding RootDirectory, UpdateSourceTrigger=PropertyChanged}" 
+                         VerticalAlignment="Center" Margin="0,0,5,0"/>
+                <Button Content="Обзор..." Margin="5,0" Command="{Binding BrowseCommand}" VerticalAlignment="Center"/>
+                <Label Content="Расширения:" VerticalAlignment="Center" Margin="10,0,5,0"/>
+                <TextBox Width="200" Text="{Binding SearchPattern, UpdateSourceTrigger=PropertyChanged}" 
+                         VerticalAlignment="Center" Margin="0,0,5,0"/>
+                <Label Content="Имя файла:" VerticalAlignment="Center" Margin="10,0,5,0"/>
+                <TextBox Width="200" Text="{Binding FileNameSearchText, UpdateSourceTrigger=PropertyChanged}" 
+                         VerticalAlignment="Center" Margin="0,0,5,0" 
+                         ToolTip="Поиск по имени файла (оставьте пустым для поиска всех файлов)"/>
+                <Button Content="Поиск" Margin="5,0" Command="{Binding SearchCommand}" VerticalAlignment="Center" 
+                        IsEnabled="{Binding IsSearching, Converter={StaticResource InvertedBooleanConverter}}"/>
+                <Button Content="Отмена" Margin="5,0" Command="{Binding CancelCommand}" VerticalAlignment="Center" 
+                        IsEnabled="{Binding IsSearching}"/>
+            </StackPanel>
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                <CheckBox Content="Сохранить структуру папок" IsChecked="{Binding PreserveStructure}" 
+                          Margin="0,0,10,0" VerticalAlignment="Center"/>
+                <Button Content="Копировать выбранные" Command="{Binding CopySelectedCommand}" Margin="5,0" VerticalAlignment="Center" 
+                        IsEnabled="{Binding IsProcessing, Converter={StaticResource InvertedBooleanConverter}}"/>
+                <Button Content="Копировать все" Command="{Binding CopyCommand}" Margin="5,0" VerticalAlignment="Center" 
+                        IsEnabled="{Binding IsProcessing, Converter={StaticResource InvertedBooleanConverter}}"/>
+                <Button Content="Переместить все" Command="{Binding MoveCommand}" Margin="5,0" VerticalAlignment="Center" 
+                        IsEnabled="{Binding IsProcessing, Converter={StaticResource InvertedBooleanConverter}}"/>
+            </StackPanel>
         </StackPanel>
         <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
             <ProgressBar Height="20" Minimum="0" Maximum="100" Value="{Binding Progress}" Width="200" Margin="0,0,10,0"/>
             <TextBlock Text="{Binding StatusMessage}" VerticalAlignment="Center" FontStyle="Italic"/>
         </StackPanel>
         <DataGrid ItemsSource="{Binding FoundFiles}" AutoGenerateColumns="False" Margin="0,10,0,10" 
-                  IsReadOnly="True" CanUserAddRows="False" CanUserDeleteRows="False">
+                  IsReadOnly="True" CanUserAddRows="False" CanUserDeleteRows="False"
+                  SelectionMode="Extended" SelectionUnit="FullRow"
+                  SelectionChanged="DataGrid_SelectionChanged">
             <DataGrid.Columns>
                 <DataGridTemplateColumn Header="Иконка" Width="30">
                     <DataGridTemplateColumn.CellTemplate>
@@ -42,13 +60,5 @@
                 <DataGridTextColumn Header="Полный путь" Binding="{Binding FullPath}" Width="*"/>
             </DataGrid.Columns>
         </DataGrid>
-        <StackPanel Orientation="Horizontal" DockPanel.Dock="Bottom" HorizontalAlignment="Right">
-            <CheckBox Content="Сохранить структуру папок" IsChecked="{Binding PreserveStructure}" 
-                      Margin="0,0,10,0" VerticalAlignment="Center"/>
-            <Button Content="Копировать" Command="{Binding CopyCommand}" Margin="5,0" VerticalAlignment="Center" 
-                    IsEnabled="{Binding IsProcessing, Converter={StaticResource InvertedBooleanConverter}}"/>
-            <Button Content="Переместить" Command="{Binding MoveCommand}" Margin="5,0" VerticalAlignment="Center" 
-                    IsEnabled="{Binding IsProcessing, Converter={StaticResource InvertedBooleanConverter}}"/>
-        </StackPanel>
     </DockPanel>
 </Window>

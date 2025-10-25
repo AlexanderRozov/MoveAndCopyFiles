@@ -1,6 +1,8 @@
 ﻿using SearchMoveAndCopyFiles.ViewModels;
 using SearchMoveAndCopyFiles.Helpers;
+using SearchMoveAndCopyFiles.Models;
 using System.Windows;
+using System.Linq;
 
 
 namespace SearchMoveAndCopyFiles
@@ -28,6 +30,18 @@ namespace SearchMoveAndCopyFiles
         {
             SettingsManager.UpdateWindowSettings(this);
             base.OnClosing(e);
+        }
+
+        private void DataGrid_SelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
+        {
+            if (DataContext is MainViewModel viewModel)
+            {
+                var dataGrid = sender as System.Windows.Controls.DataGrid;
+                if (dataGrid != null)
+                {
+                    viewModel.SelectedFiles = dataGrid.SelectedItems;
+                }
+            }
         }
     }
 }
