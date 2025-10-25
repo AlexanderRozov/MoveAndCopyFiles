@@ -1,8 +1,8 @@
-﻿using FileFinderApp.ViewModels;
+﻿using SearchMoveAndCopyFiles.ViewModels;
 using System.Windows;
 
 
-namespace FileFinderApp
+namespace SearchMoveAndCopyFiles
 {
 public partial class MainWindow : Window
 {

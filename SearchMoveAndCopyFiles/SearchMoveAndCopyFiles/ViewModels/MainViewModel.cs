@@ -1,29 +1,45 @@
-using FileFinderApp.Helpers;
-using FileFinderApp.Models;
-using FileFinderApp.Services;
-using Microsoft.VisualStudio.PlatformUI;
+using SearchMoveAndCopyFiles.Helpers;
+using SearchMoveAndCopyFiles.Models;
+using SearchMoveAndCopyFiles.Services;
 using Microsoft.Win32;
 using System.Collections.ObjectModel;
+using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
-using System.Windows.Forms;
-using WinForms = System.Windows.Forms;
 using System.Windows.Input;
 
-namespace FileFinderApp.ViewModels
+namespace SearchMoveAndCopyFiles.ViewModels
 {
     public class MainViewModel : ObservableObject
     {
         private readonly FileSearchService _searchService = new();
         private readonly FileCopyService _copyService = new();
-        private CancellationTokenSource _cts;
+        private CancellationTokenSource? _cts;
 
-        public ObservableCollection<FileItem> FoundFiles { get; } = new();
-        private string _rootDirectory;
-        public string RootDirectory
+        public MainViewModel()
+        {
+            FoundFiles.CollectionChanged += (s, e) => RaiseCommandsCanExecuteChanged();
+        }
+
+        private ObservableCollection<FileItem> _foundFiles = new();
+        public ObservableCollection<FileItem> FoundFiles 
+        { 
+            get => _foundFiles;
+            private set 
+            { 
+                SetProperty(ref _foundFiles, value);
+                RaiseCommandsCanExecuteChanged();
+            }
+        }
+        private string? _rootDirectory;
+        public string? RootDirectory
         {
             get => _rootDirectory;
-            set => SetProperty(ref _rootDirectory, value);
+            set 
+            { 
+                SetProperty(ref _rootDirectory, value);
+                RaiseCommandsCanExecuteChanged();
+            }
         }
 
         private string _searchPattern = "*.txt;*.png, *.pdf, *.doc, *.docx, *.dwg, *.jpg, *.jpeg";
@@ -40,6 +56,36 @@ namespace FileFinderApp.ViewModels
             set => SetProperty(ref _progress, value);
         }
 
+        private void RaiseCommandsCanExecuteChanged()
+        {
+            _searchCommand?.RaiseCanExecuteChanged();
+            _cancelCommand?.RaiseCanExecuteChanged();
+            _copyCommand?.RaiseCanExecuteChanged();
+            _moveCommand?.RaiseCanExecuteChanged();
+        }
+
+        private bool _isSearching;
+        public bool IsSearching
+        {
+            get => _isSearching;
+            set 
+            { 
+                SetProperty(ref _isSearching, value);
+                RaiseCommandsCanExecuteChanged();
+            }
+        }
+
+        private bool _isProcessing;
+        public bool IsProcessing
+        {
+            get => _isProcessing;
+            set 
+            { 
+                SetProperty(ref _isProcessing, value);
+                RaiseCommandsCanExecuteChanged();
+            }
+        }
+
         private bool _preserveStructure = true;
         public bool PreserveStructure
         {
@@ -47,31 +93,67 @@ namespace FileFinderApp.ViewModels
             set => SetProperty(ref _preserveStructure, value);
         }
 
+        private string _statusMessage = "Готов к работе";
+        public string StatusMessage
+        {
+            get => _statusMessage;
+            set => SetProperty(ref _statusMessage, value);
+        }
+
+        private RelayCommand? _searchCommand;
+        private RelayCommand? _cancelCommand;
+        private RelayCommand? _copyCommand;
+        private RelayCommand? _moveCommand;
+
         public ICommand BrowseCommand => new RelayCommand(_ => BrowseFolder());
-        public ICommand SearchCommand => new RelayCommand(async _ => await SearchAsync().ConfigureAwait(false));
-        public ICommand CancelCommand => new RelayCommand(_ => _cts?.Cancel());
-        public ICommand CopyCommand => new RelayCommand(async _ => await CopyMoveAsync(false));
-        public ICommand MoveCommand => new RelayCommand(async _ => await CopyMoveAsync(true));
+        
+        public ICommand SearchCommand => _searchCommand ??= new RelayCommand(
+            _ => _ = SearchAsync(), 
+            _ => !IsSearching && !string.IsNullOrWhiteSpace(RootDirectory));
+            
+        public ICommand CancelCommand => _cancelCommand ??= new RelayCommand(
+            _ => _cts?.Cancel(), 
+            _ => IsSearching || IsProcessing);
+            
+        public ICommand CopyCommand => _copyCommand ??= new RelayCommand(
+            _ => _ = CopyMoveAsync(false), 
+            _ => !IsProcessing && FoundFiles.Count > 0);
+            
+        public ICommand MoveCommand => _moveCommand ??= new RelayCommand(
+            _ => _ = CopyMoveAsync(true), 
+            _ => !IsProcessing && FoundFiles.Count > 0);
 
         private void BrowseFolder()
         {
             var folderDialog = new OpenFolderDialog
             {
-                // Set options here
+                Title = "Выберите папку для поиска файлов"
             };
 
             if (folderDialog.ShowDialog() == true)
             {
-                var folderName = folderDialog.FolderName;
-                // Do something with the result
+                RootDirectory = folderDialog.FolderName;
             }
         }
 
         private async Task SearchAsync()
         {
-            if (string.IsNullOrWhiteSpace(RootDirectory)) return;
+            if (string.IsNullOrWhiteSpace(RootDirectory))
+            {
+                StatusMessage = "Выберите папку для поиска";
+                return;
+            }
+
+            if (!Directory.Exists(RootDirectory))
+            {
+                StatusMessage = "Выбранная папка не существует";
+                return;
+            }
 
             FoundFiles.Clear();
+            IsSearching = true;
+            StatusMessage = "Поиск файлов...";
+            Progress = 0;
             _cts = new();
             var progress = new Progress<int>(v => Progress = v);
 
@@ -80,10 +162,22 @@ namespace FileFinderApp.ViewModels
                 var files = await _searchService.SearchAsync(RootDirectory, SearchPattern, progress, _cts.Token);
                 foreach (var f in files)
                     FoundFiles.Add(f);
+                
+                StatusMessage = $"Всего найдено файлов: {FoundFiles.Count}";
             }
             catch (TaskCanceledException)
             {
-                // Поиск отменён пользователем
+                StatusMessage = "Поиск отменён пользователем";
+            }
+            catch (Exception ex)
+            {
+                StatusMessage = $"Ошибка при поиске: {ex.Message}";
+                System.Windows.MessageBox.Show($"Ошибка при поиске файлов: {ex.Message}", "Ошибка", 
+                    System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Error);
+            }
+            finally
+            {
+                IsSearching = false;
             }
         }
 
@@ -93,26 +187,41 @@ namespace FileFinderApp.ViewModels
 
             var folderDialog = new OpenFolderDialog
             {
-                // Set options here
+                Title = move ? "Выберите папку для перемещения файлов" : "Выберите папку для копирования файлов"
             };
 
-            if (folderDialog.ShowDialog() == true)
-            {
-                var folderName = folderDialog.FolderName;
-                // Do something with the result
-            }
+            if (folderDialog.ShowDialog() != true) return;
 
-            var dest = folderDialog.DefaultDirectory;
+            var destination = folderDialog.FolderName;
+            IsProcessing = true;
+            StatusMessage = move ? "Перемещение файлов..." : "Копирование файлов...";
+            Progress = 0;
             _cts = new();
             var progress = new Progress<int>(v => Progress = v);
 
             try
             {
-                await _copyService.CopyOrMoveAsync(FoundFiles, dest, PreserveStructure, move, progress, _cts.Token);
+                await _copyService.CopyOrMoveAsync(FoundFiles, destination, PreserveStructure, move, progress, _cts.Token);
+                StatusMessage = move ? $"Перемещено файлов: {FoundFiles.Count}" : $"Скопировано файлов: {FoundFiles.Count}";
+                
+                if (move)
+                {
+                    FoundFiles.Clear();
+                }
             }
             catch (TaskCanceledException)
             {
-                // Операция прервана пользователем
+                StatusMessage = "Операция прервана пользователем";
+            }
+            catch (Exception ex)
+            {
+                StatusMessage = $"Ошибка при выполнении операции: {ex.Message}";
+                System.Windows.MessageBox.Show($"Ошибка при выполнении операции: {ex.Message}", "Ошибка", 
+                    System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Error);
+            }
+            finally
+            {
+                IsProcessing = false;
             }
         }
     }
