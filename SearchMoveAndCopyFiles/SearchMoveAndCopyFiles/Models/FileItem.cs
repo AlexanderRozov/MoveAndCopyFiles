@@ -4,7 +4,7 @@ using System.Windows;
 using System.Windows.Media.Imaging;
 
 
-namespace FileFinderApp.Models
+namespace SearchMoveAndCopyFiles.Models
 {
 public class FileItem
 {
