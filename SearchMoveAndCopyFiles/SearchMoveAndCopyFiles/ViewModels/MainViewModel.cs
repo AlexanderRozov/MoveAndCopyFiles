@@ -123,7 +123,7 @@ namespace SearchMoveAndCopyFiles.ViewModels
         }
 
         private bool _preserveStructure = true;
-        public bool PreserveStructure
+        private bool PreserveStructure
         {
             get => _preserveStructure;
             set 
