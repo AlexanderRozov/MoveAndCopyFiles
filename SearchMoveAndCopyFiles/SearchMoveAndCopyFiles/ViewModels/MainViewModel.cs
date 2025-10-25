@@ -4,11 +4,8 @@ using SearchMoveAndCopyFiles.Services;
 using Microsoft.Win32;
 using System.Collections.ObjectModel;
 using System.IO;
-using System.Threading;
-using System.Threading.Tasks;
 using System.Windows.Input;
 using System.Collections;
-using System.Linq;
 
 namespace SearchMoveAndCopyFiles.ViewModels
 {
@@ -333,6 +330,7 @@ namespace SearchMoveAndCopyFiles.ViewModels
                     }
                     SelectedFiles.Clear();
                 }
+                StatusMessage = "Операция завершена";
             }
             catch (TaskCanceledException)
             {

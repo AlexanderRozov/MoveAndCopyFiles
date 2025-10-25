@@ -1,8 +1,6 @@
 ﻿using SearchMoveAndCopyFiles.ViewModels;
 using SearchMoveAndCopyFiles.Helpers;
-using SearchMoveAndCopyFiles.Models;
 using System.Windows;
-using System.Linq;
 
 
 namespace SearchMoveAndCopyFiles
