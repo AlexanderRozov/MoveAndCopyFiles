@@ -19,6 +19,24 @@ namespace SearchMoveAndCopyFiles.ViewModels
         public MainViewModel()
         {
             FoundFiles.CollectionChanged += (s, e) => RaiseCommandsCanExecuteChanged();
+            LoadSettings();
+        }
+
+        private void LoadSettings()
+        {
+            var settings = SettingsManager.Settings;
+            RootDirectory = settings.LastSearchDirectory;
+            SearchPattern = settings.SearchPattern;
+            PreserveStructure = settings.PreserveStructure;
+        }
+
+        private void SaveSettings()
+        {
+            var settings = SettingsManager.Settings;
+            settings.LastSearchDirectory = RootDirectory;
+            settings.SearchPattern = SearchPattern;
+            settings.PreserveStructure = PreserveStructure;
+            SettingsManager.SaveSettings();
         }
 
         private ObservableCollection<FileItem> _foundFiles = new();
@@ -39,6 +57,7 @@ namespace SearchMoveAndCopyFiles.ViewModels
             { 
                 SetProperty(ref _rootDirectory, value);
                 RaiseCommandsCanExecuteChanged();
+                SaveSettings();
             }
         }
 
@@ -46,7 +65,11 @@ namespace SearchMoveAndCopyFiles.ViewModels
         public string SearchPattern
         {
             get => _searchPattern;
-            set => SetProperty(ref _searchPattern, value);
+            set 
+            { 
+                SetProperty(ref _searchPattern, value);
+                SaveSettings();
+            }
         }
 
         private int _progress;
@@ -90,7 +113,11 @@ namespace SearchMoveAndCopyFiles.ViewModels
         public bool PreserveStructure
         {
             get => _preserveStructure;
-            set => SetProperty(ref _preserveStructure, value);
+            set 
+            { 
+                SetProperty(ref _preserveStructure, value);
+                SaveSettings();
+            }
         }
 
         private string _statusMessage = "Готов к работе";
@@ -164,6 +191,9 @@ namespace SearchMoveAndCopyFiles.ViewModels
                     FoundFiles.Add(f);
                 
                 StatusMessage = $"Всего найдено файлов: {FoundFiles.Count}";
+                
+                // Сохраняем настройки после успешного поиска
+                SaveSettings();
             }
             catch (TaskCanceledException)
             {
