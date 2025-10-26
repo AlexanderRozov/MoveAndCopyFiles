@@ -35,8 +35,6 @@
                         IsEnabled="{Binding IsProcessing, Converter={StaticResource InvertedBooleanConverter}}"/>
                 <Button Content="Копировать все" Command="{Binding CopyCommand}" Margin="5,0" VerticalAlignment="Center" 
                         IsEnabled="{Binding IsProcessing, Converter={StaticResource InvertedBooleanConverter}}"/>
-                <Button Content="Переместить все" Command="{Binding MoveCommand}" Margin="5,0" VerticalAlignment="Center" 
-                        IsEnabled="{Binding IsProcessing, Converter={StaticResource InvertedBooleanConverter}}"/>
             </StackPanel>
         </StackPanel>
         <StackPanel Orientation="Vertical" Margin="0,0,0,10">
